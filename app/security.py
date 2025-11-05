@@ -1,78 +1,105 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
-from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-
-from . import schemas, crud
-from .database import get_db_sql
-from .config import SECRET_KEY, ALGORITHM
-
-# Importa o Passlib para hashing de senha
+from pydantic import BaseModel
+from jose import JWTError, jwt
 from passlib.context import CryptContext
+from datetime import datetime, timedelta, timezone
 
+from . import crud, schemas, database
+from .config import settings  # Importa as configurações
+
+# --- Configuração de Hashing de Senha (Passlib) ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Isso diz ao FastAPI que a URL "/login" é a que gera o token
+# --- Configuração do OAuth2 (FastAPI) ---
+# Diz ao FastAPI para procurar o token na URL "/login"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
-def verify_password(plain_password, hashed_password):
-    """Verifica se a senha em texto plano bate com o hash salvo."""
+# --- Funções de Hashing ---
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifica se a senha em texto plano corresponde ao hash."""
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def get_password_hash(password):
+def get_password_hash(password: str) -> str:
     """Gera um hash para a senha em texto plano."""
     return pwd_context.hash(password)
 
 
+# --- Funções de Token JWT ---
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    """Cria um novo token de acesso JWT."""
+    """Cria um novo token JWT."""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        # Usa o tempo padrão de 15 minutos se não for passado
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        # Usa o tempo de expiração das configurações
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM
+    )
     return encoded_jwt
 
 
-# --- A NOVA DEPENDÊNCIA DE AUTENTICAÇÃO ---
-# Ela será usada em todos os endpoints protegidos
+# --- Dependência de Autenticação ---
+
+class TokenData(BaseModel):
+    """Modelo Pydantic para os dados dentro do token."""
+    id_usuario: str | None = None
+
+
+def authenticate_user(db: Session, email: str, password: str) -> schemas.UserInDB | None:
+    """Verifica se um usuário existe e se a senha está correta."""
+    user = crud.get_user_by_email(db, email=email)
+    if not user:
+        return None
+    if not verify_password(password, user.senha_hash):
+        return None
+    return user
+
+
 def get_current_user_id(
-        token: str = Depends(oauth2_scheme),
-        db: Session = Depends(get_db_sql)
+        db: Session = Depends(database.get_db_sql),
+        token: str = Depends(oauth2_scheme)
 ) -> str:
     """
-    Decodifica o token JWT para obter o ID do usuário.
-    Levanta exceção 401 se o token for inválido.
+    Dependência principal: decodifica o token, valida o usuário
+    e retorna o ID do usuário.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não foi possível validar as credenciais",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     try:
-        # Decodifica o token
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-
-        # Pega o ID do usuário de dentro do token
-        id_usuario: str = payload.get("id_usuario")
-
-        if id_usuario is None:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+        # Pega o 'id_usuario' de dentro do token
+        token_data = TokenData(id_usuario=payload.get("id_usuario"))
+        if token_data.id_usuario is None:
             raise credentials_exception
 
-        token_data = schemas.TokenData(id_usuario=id_usuario)
     except JWTError:
         raise credentials_exception
 
-    # (Opcional, mas recomendado) Verifica se o usuário ainda existe no banco
-    user = crud.get_user_by_id(db, id_usuario=token_data.id_usuario)
+    # --- LINHA CORRIGIDA ---
+    # Chamando a função com o nome correto: 'get_user_by_id_in_db'
+    user = crud.get_user_by_id_in_db(db, id_usuario=token_data.id_usuario)
+
     if user is None:
         raise credentials_exception
 
+    # Retorna o ID do usuário para os endpoints usarem
     return user.id_usuario
