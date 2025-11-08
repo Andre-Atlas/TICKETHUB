@@ -1,0 +1,243 @@
+{
+	"info": {
+		"_postman_id": "d52ccf9a-367a-495b-8b39-6700a1b18137",
+		"name": "TicketHub API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "49806681",
+		"_collection_link": "https://andrealvesacioli-8066165.postman.co/workspace/Andr%C3%A9-Alves's-Workspace~315c764a-8005-4d4a-8ca0-5b0b21a083d9/collection/49806681-d52ccf9a-367a-495b-8b39-6700a1b18137?action=share&source=collection_link&creator=49806681"
+	},
+	"item": [
+		{
+			"name": "POST /register",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"email\": \"postman@email.com\",\r\n  \"password\": \"senhaPostman123\",\r\n  \"nome_completo\": \"Usuário Postman\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8000/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST /login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "username",
+							"value": "postman@email.com",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "senhaPostman123",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8000/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST /eventos (Create)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"id_categoria\": 2,\r\n  \"titulo\": \"Sessão de Estreia: O Herói de Aço\",\r\n  \"data_hora_inicio\": \"2025-11-20T21:00:00\",\r\n  \"local_evento\": \"Cineplex - Sala 3\",\r\n  \"dados_mongo\": {\r\n    \"ingresso\": \"Inteira\",\r\n    \"sala\": \"3\",\r\n    \"assento\": \"G12\"\r\n  }\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8000/eventos/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"eventos",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET /agenda",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/agenda/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"agenda",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET /eventos/{id_evento}",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/eventos/:id_evento",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"eventos",
+						":id_evento"
+					],
+					"variable": [
+						{
+							"key": "id_evento",
+							"value": "EVT-145959be-1762302704221"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "PUT /eventos/{id_evento}",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"id_categoria\": 5,\r\n  \"titulo\": \"Show da Banda X (Sessão Acústica)\",\r\n  \"data_hora_inicio\": \"2025-12-11T21:00:00\",\r\n  \"local_evento\": \"Teatro Municipal\",\r\n  \"dados_mongo\": {\r\n    \"descricao\": \"Uma apresentação especial e intimista.\",\r\n    \"classificacao_etaria\": 12,\r\n    \"aviso\": \"Não será permitido entrar após o início.\"\r\n  }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8000/eventos/:id_evento",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"eventos",
+						":id_evento"
+					],
+					"variable": [
+						{
+							"key": "id_evento",
+							"value": "EVT-145959be-1762302704221"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DELETE /eventos/{id_evento}",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8000/eventos/:id_evento",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"eventos",
+						":id_evento"
+					],
+					"variable": [
+						{
+							"key": "id_evento",
+							"value": "EVT-145959be-1762302704221"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZF91c3VhcmlvIjoiMTQ1OTU5YmUtYjlkYi0xMWYwLWE3NzctNTRiZjY0MGFkZGI3IiwiZXhwIjoxNzYyMzA5MTg4fQ.1gO_n7OYGf2nOOGP0SPZ-BcUHBghqx3ZcVartBz7izM",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
