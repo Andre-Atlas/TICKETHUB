@@ -1,13 +1,9 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import Any, Dict
+from typing import Any, Dict, List
 from datetime import datetime
 
 
 # --- Modelos de Evento ---
-
-class DetalhesFlexiveis(BaseModel):
-    detalhes: Dict[str, Any] = Field(default_factory=dict)
-
 
 class EventoBase(BaseModel):
     id_categoria: int
@@ -29,28 +25,24 @@ class EventoResposta(EventoBase):
         from_attributes = True
 
 
-# --- NOVOS Modelos de Autenticação ---
+# --- Modelos de Autenticação ---
 
 class Token(BaseModel):
-    """Schema para a resposta do token de login."""
     access_token: str
     token_type: str
 
 
 class TokenData(BaseModel):
-    """Schema para os dados dentro do token JWT."""
     id_usuario: str | None = None
 
 
 class UserCreate(BaseModel):
-    """Schema para a criação de um novo usuário."""
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=72)
     nome_completo: str
 
 
 class UserInDB(BaseModel):
-    """Schema para ler o usuário do banco (inclui hash)."""
     id_usuario: str
     id_grupo: int
     email: EmailStr
@@ -60,3 +52,43 @@ class UserInDB(BaseModel):
     class Config:
         from_attributes = True
 
+
+# --- Modelos de Gerenciamento de Perfil ---
+
+class UserResponse(BaseModel):
+    id_usuario: str
+    email: EmailStr
+    nome_completo: str
+    id_grupo: int
+
+    class Config:
+        from_attributes = True
+
+
+class UserUpdateProfile(BaseModel):
+    nome_completo: str = Field(..., min_length=3)
+
+
+class UserUpdatePassword(BaseModel):
+    old_password: str
+    new_password: str = Field(..., min_length=8, max_length=72)
+
+# --- NOVOS SCHEMAS (Recuperação de Senha e Busca de Admin) ---
+
+class ForgotPasswordRequest(BaseModel):
+    """Schema para a solicitação de recuperação de senha."""
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    """Schema para a efetivação da nova senha."""
+    token: str
+    new_password: str = Field(..., min_length=8, max_length=72)
+
+class UserSearchResponse(BaseModel):
+    """Schema para a resposta da busca de usuários pelo admin."""
+    id_usuario: str
+    email: EmailStr
+    nome_completo: str
+
+    class Config:
+        from_attributes = True
