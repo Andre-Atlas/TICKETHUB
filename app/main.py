@@ -146,7 +146,7 @@ def api_admin_delete_user(
 
 @app.get("/admin/users/search", response_model=List[schemas.UserSearchResponse], summary="[ADMIN] Procura por usuários")
 def api_admin_search_users(
-        q: str = Query(..., min_length=3, description="Termo de busca para e-mail ou nome completo"),
+        q: str = Query(..., min_length=1, description="Termo de busca para e-mail ou nome completo"),
         db_sql: Session = Depends(get_db_sql),
         admin_user: schemas.UserInDB = Depends(security.get_admin_user)
 ):
