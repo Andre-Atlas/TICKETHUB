@@ -1,0 +1,161 @@
+-- =====================================================================
+-- Script de Criação do Banco de Dados para o Projeto TicketHub (VERSÃO FINAL)
+-- Arquitetura: MySQL + MongoDB + Redis
+-- =====================================================================
+
+-- 1. CRIAÇÃO DO SCHEMA
+CREATE DATABASE IF NOT EXISTS tickethub_db
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+USE tickethub_db;
+
+-- 2. CRIAÇÃO DAS TABELAS
+CREATE TABLE IF NOT EXISTS grupos_usuarios (
+    id_grupo INT AUTO_INCREMENT PRIMARY KEY,
+    nome_grupo VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS categorias_evento (
+    id_categoria INT AUTO_INCREMENT PRIMARY KEY,
+    nome_categoria VARCHAR(100) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario VARCHAR(36) PRIMARY KEY,
+    id_grupo INT NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    senha_hash VARCHAR(255) NOT NULL,
+    nome_completo VARCHAR(255) NOT NULL,
+    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_usuario_grupo FOREIGN KEY (id_grupo) REFERENCES grupos_usuarios(id_grupo)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS eventos (
+    id_evento VARCHAR(50) PRIMARY KEY,
+    id_usuario VARCHAR(36) NOT NULL,
+    id_categoria INT NOT NULL,
+    mongo_detalhes_id VARCHAR(24) NULL COMMENT 'Referência ao _id do MongoDB',
+    titulo VARCHAR(255) NOT NULL,
+    data_hora_inicio DATETIME NOT NULL,
+    data_hora_fim DATETIME NULL,
+    local_evento VARCHAR(255) NOT NULL,
+    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_evento_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+    CONSTRAINT fk_evento_categoria FOREIGN KEY (id_categoria) REFERENCES categorias_evento(id_categoria)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS log_auditoria (
+    id_log INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario VARCHAR(36) NULL,
+    acao VARCHAR(255) NOT NULL,
+    timestamp_acao DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 3. FUNÇÕES CUSTOMIZADAS
+DELIMITER $$
+
+CREATE FUNCTION FUNC_GERAR_ID_USUARIO()
+RETURNS VARCHAR(36)
+DETERMINISTIC
+BEGIN
+    RETURN UUID();
+END$$
+
+CREATE FUNCTION FUNC_GERAR_ID_EVENTO(p_id_usuario VARCHAR(36))
+RETURNS VARCHAR(50)
+DETERMINISTIC
+BEGIN
+    DECLARE ts_millis BIGINT;
+    SET ts_millis = UNIX_TIMESTAMP(NOW(3)) * 1000;
+    RETURN CONCAT('EVT-', SUBSTRING(p_id_usuario, 1, 8), '-', ts_millis);
+END$$
+
+DELIMITER ;
+
+-- 4. ÍNDICES
+CREATE INDEX idx_usuario_data ON eventos(id_usuario, data_hora_inicio);
+
+-- 5. TRIGGERS
+DELIMITER $$
+
+CREATE TRIGGER TRG_VALIDAR_DATA_EVENTO
+BEFORE INSERT ON eventos
+FOR EACH ROW
+BEGIN
+    IF NEW.data_hora_inicio < NOW() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Erro: Não é possível cadastrar eventos com data no passado.';
+    END IF;
+END$$
+
+CREATE TRIGGER TRG_AUDITORIA_NOVO_EVENTO
+AFTER INSERT ON eventos
+FOR EACH ROW
+BEGIN
+    INSERT INTO log_auditoria (id_usuario, acao)
+    VALUES (NEW.id_usuario, CONCAT('Novo evento criado: ', NEW.titulo));
+END$$
+
+DELIMITER ;
+
+-- 6. VIEW (VERSÃO CORRIGIDA)
+CREATE OR REPLACE VIEW VIEW_AGENDA_FUTURA_USUARIO AS
+SELECT
+    e.id_evento,
+    e.id_usuario,
+    e.id_categoria,  -- Campo adicionado para corrigir o bug do Pydantic
+    u.nome_completo AS nome_usuario,
+    e.titulo,
+    e.data_hora_inicio,
+    e.local_evento,
+    e.mongo_detalhes_id,
+    c.nome_categoria
+FROM eventos e
+JOIN usuarios u ON e.id_usuario = u.id_usuario
+JOIN categorias_evento c ON e.id_categoria = c.id_categoria
+WHERE e.data_hora_inicio >= CURDATE()
+ORDER BY e.data_hora_inicio ASC;
+
+-- 7. STORED PROCEDURE (VERSÃO CORRIGIDA)
+DELIMITER $$
+CREATE PROCEDURE SP_ADICIONAR_EVENTO_PRINCIPAL(
+    IN p_id_usuario VARCHAR(36),
+    IN p_id_categoria INT,
+    IN p_titulo VARCHAR(255),
+    IN p_data_inicio DATETIME,
+    IN p_local VARCHAR(255),
+    IN p_mongo_detalhes_id VARCHAR(24)
+)
+BEGIN
+    DECLARE v_id_evento VARCHAR(50);
+    START TRANSACTION;
+    SET v_id_evento = FUNC_GERAR_ID_EVENTO(p_id_usuario);
+    INSERT INTO eventos (id_evento, id_usuario, id_categoria, titulo, data_hora_inicio, local_evento, mongo_detalhes_id)
+    VALUES (v_id_evento, p_id_usuario, p_id_categoria, p_titulo, p_data_inicio, p_local, p_mongo_detalhes_id);
+    COMMIT;
+    SELECT v_id_evento AS 'id_novo_evento';
+END$$
+
+DELIMITER ;
+
+-- 8. DADOS INICIAIS
+INSERT INTO grupos_usuarios (id_grupo, nome_grupo) VALUES (1, 'Administrador'), (2, 'Usuario Comum')
+ON DUPLICATE KEY UPDATE nome_grupo=VALUES(nome_grupo);
+
+INSERT INTO categorias_evento (nome_categoria) VALUES
+('Show'), ('Cinema'), ('Viagem Aérea'), ('Viagem de Ônibus'), ('Teatro'), ('Evento Esportivo'), ('Conferência')
+ON DUPLICATE KEY UPDATE nome_categoria=VALUES(nome_categoria);
+
+-- 9. CRIAÇÃO DE USUÁRIO E PERMISSÕES
+-- !! IMPORTANTE: Mude 'dev_backend' e 'sua_senha_forte' se forem diferentes !!
+CREATE USER 'dev_backend'@'localhost' IDENTIFIED BY 'sua_senha_forte';
+
+-- Concede todas as permissões para este usuário no banco tickethub_db
+GRANT ALL PRIVILEGES ON `tickethub_db`.* TO 'dev_backend'@'localhost';
+
+FLUSH PRIVILEGES;
+
+-- =====================================================================
+-- Fim do Script
+-- =====================================================================
